@@ -15,7 +15,7 @@ use rand::seq::SliceRandom;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-use crate::{Battlesnake, Board, Game};
+use crate::{Battlesnake, Board, Game, Coord};
 
 // info is called when you create your Battlesnake on play.battlesnake.com
 // and controls your Battlesnake's appearance
@@ -25,10 +25,10 @@ pub fn info() -> Value {
 
     return json!({
         "apiversion": "1",
-        "author": "", // TODO: Your Battlesnake Username
-        "color": "#888888", // TODO: Choose color
-        "head": "default", // TODO: Choose head
-        "tail": "default", // TODO: Choose tail
+        "author": "Lethal Lora",
+        "color": "#8ceb34",
+        "head": "fang",
+        "tail": "pixel", // TODO: Choose tail
     });
 }
 
@@ -45,7 +45,7 @@ pub fn end(_game: &Game, _turn: &u32, _board: &Board, _you: &Battlesnake) {
 // move is called on every turn and returns your next move
 // Valid moves are "up", "down", "left", or "right"
 // See https://docs.battlesnake.com/api/example-move for available data
-pub fn get_move(_game: &Game, turn: &u32, _board: &Board, you: &Battlesnake) -> Value {
+pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> Value {
     
     let mut is_move_safe: HashMap<_, _> = vec![
         ("up", true),
@@ -74,11 +74,58 @@ pub fn get_move(_game: &Game, turn: &u32, _board: &Board, you: &Battlesnake) -> 
     }
 
     // TODO: Step 1 - Prevent your Battlesnake from moving out of bounds
-    // let board_width = &board.width;
-    // let board_height = &board.height;
-
     // TODO: Step 2 - Prevent your Battlesnake from colliding with itself
-    // let my_body = &you.body;
+    let board_width = board.width;
+    let board_height = board.height;
+    info!("width: {}, height: {}", board_width, board_height);
+    let my_body = &you.body;
+    if my_head.y > 0 {
+        let down = Coord{x: my_head.x, y: my_head.y - 1};
+        for space in my_body.iter().skip(1) {
+            if *space == down {
+                is_move_safe.insert("down", false);
+                break;
+            }
+        }
+    } else {
+        is_move_safe.insert("down", false);
+    }
+
+    if my_head.y < board_height - 1 {
+        let up = Coord{x: my_head.x, y: my_head.y + 1};
+        for space in my_body.iter().skip(1) {
+            if *space == up {
+                is_move_safe.insert("up", false);
+                break;
+            }
+        }
+    } else {
+        is_move_safe.insert("up", false);
+    }
+
+    if my_head.x > 0 {
+        let left = Coord{x: my_head.x - 1, y: my_head.y};
+        for space in my_body.iter().skip(1) {
+            if *space == left {
+                is_move_safe.insert("left", false);
+                break;
+            }
+        }
+    } else {
+        is_move_safe.insert("left", false);
+    }
+
+    if my_head.x < board_width - 1 {
+        let right = Coord{x: my_head.x + 1, y: my_head.y};
+        for space in my_body.iter().skip(1) {
+            if *space == right {
+                is_move_safe.insert("right", false);
+                break;
+            }
+        }
+    } else {
+        is_move_safe.insert("right", false);
+    }
 
     // TODO: Step 3 - Prevent your Battlesnake from colliding with other Battlesnakes
     // let opponents = &board.snakes;
@@ -91,7 +138,13 @@ pub fn get_move(_game: &Game, turn: &u32, _board: &Board, you: &Battlesnake) -> 
         .collect::<Vec<_>>();
     
     // Choose a random move from the safe ones
-    let chosen = safe_moves.choose(&mut rand::thread_rng()).unwrap();
+    let chosen = 
+        if safe_moves.is_empty() {
+            info!("no safe moves -- we die now :(");
+            "left"
+        } else {
+            safe_moves.choose(&mut rand::thread_rng()).unwrap()
+        };
 
     // TODO: Step 4 - Move towards food instead of random, to regain health and survive longer
     // let food = &board.food;
