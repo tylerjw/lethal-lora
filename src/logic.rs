@@ -56,6 +56,10 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
     .into_iter()
     .collect();
 
+    let opponents: Vec<_> = board.snakes.iter()
+    .filter(|&s| s.id != you.id )
+    .collect();
+
     // We've included code to prevent your Battlesnake from moving backwards
     let my_head = &you.body[0]; // Coordinates of your head
     let my_neck = &you.body[1]; // Coordinates of your "neck"
@@ -75,6 +79,8 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
 
     // TODO: Step 1 - Prevent your Battlesnake from moving out of bounds
     // TODO: Step 2 - Prevent your Battlesnake from colliding with itself
+    // TODO: Step 3 - Prevent your Battlesnake from colliding with other Battlesnakes
+
     let board_width = board.width;
     let board_height = board.height;
     info!("width: {}, height: {}", board_width, board_height);
@@ -85,6 +91,14 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
             if *space == down {
                 is_move_safe.insert("down", false);
                 break;
+            }
+        }
+        for op in opponents.iter() {
+            for space in &op.body {
+                if *space == down {
+                    is_move_safe.insert("down", false);
+                    break;
+                }
             }
         }
     } else {
@@ -99,6 +113,14 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
                 break;
             }
         }
+        for op in opponents.iter() {
+            for space in &op.body {
+                if *space == up {
+                    is_move_safe.insert("up", false);
+                    break;
+                }
+            }
+        }
     } else {
         is_move_safe.insert("up", false);
     }
@@ -109,6 +131,14 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
             if *space == left {
                 is_move_safe.insert("left", false);
                 break;
+            }
+        }
+        for op in opponents.iter() {
+            for space in &op.body {
+                if *space == left {
+                    is_move_safe.insert("left", false);
+                    break;
+                }
             }
         }
     } else {
@@ -123,12 +153,17 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
                 break;
             }
         }
+        for op in opponents.iter() {
+            for space in &op.body {
+                if *space == right {
+                    is_move_safe.insert("right", false);
+                    break;
+                }
+            }
+        }
     } else {
         is_move_safe.insert("right", false);
     }
-
-    // TODO: Step 3 - Prevent your Battlesnake from colliding with other Battlesnakes
-    // let opponents = &board.snakes;
 
     // Are there any safe moves left?
     let safe_moves = is_move_safe
