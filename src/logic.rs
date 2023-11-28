@@ -92,9 +92,34 @@ fn in_bounds(board: &Board, coord: &Coord) -> bool {
     coord.x < board.width && coord.y < board.height
 }
 
+fn manhattan_distance(a: &Coord, b: &Coord) -> u32 {
+    a.x.abs_diff(b.x) + a.y.abs_diff(b.y)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn manhattan_distance_test() {
+        assert_eq!(
+            manhattan_distance(&Coord { x: 0, y: 0 }, &Coord { x: 0, y: 0 }),
+            0
+        );
+        assert_eq!(
+            manhattan_distance(&Coord { x: 0, y: 0 }, &Coord { x: 10, y: 10 }),
+            20
+        );
+
+        assert_eq!(
+            manhattan_distance(&Coord { x: 5, y: 5 }, &Coord { x: 0, y: 0 }),
+            10
+        );
+        assert_eq!(
+            manhattan_distance(&Coord { x: 3, y: 1 }, &Coord { x: 4, y: 9 }),
+            9
+        );
+    }
 
     #[test]
     fn move_to_coord() {
@@ -241,16 +266,35 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
         .filter(|c| !snake_coords.contains(&c))
         .collect::<Vec<Coord>>();
 
-    // Choose a random move from the safe ones
-    let chosen = if safe_moves.is_empty() {
-        info!("no safe moves -- we die now :(");
-        Move::Left
-    } else {
-        Move::from_coord(&you, safe_moves.choose(&mut rand::thread_rng()).unwrap()).unwrap()
-    };
+    if safe_moves.is_empty() {
+        info!("There are no safe moves, we are dead :(");
+        return json!({"move": Move::Left.to_string()});
+    }
 
-    // TODO: Step 4 - Move towards food instead of random, to regain health and survive longer
-    // let food = &board.food;
+    // select random move
+    let mut chosen =
+        Move::from_coord(&you, safe_moves.choose(&mut rand::thread_rng()).unwrap()).unwrap();
+
+    let closest_food = board
+        .food
+        .iter()
+        .map(|food| (food, manhattan_distance(&you.body[0], food)))
+        .min_by(|(_, ad), (_, bd)| ad.cmp(bd))
+        .map(|(coord, _)| coord);
+
+    // if there is food, move towards nearest food
+    if let Some(food) = closest_food {
+        chosen = Move::from_coord(
+            &you,
+            safe_moves
+                .iter()
+                .map(|c| (c, manhattan_distance(&c, food)))
+                .min_by(|(_, ad), (_, bd)| ad.cmp(bd))
+                .map(|(coord, _)| coord)
+                .unwrap(),
+        )
+        .unwrap();
+    }
 
     info!("MOVE {}: {}", turn, chosen);
     return json!({ "move": chosen.to_string() });
