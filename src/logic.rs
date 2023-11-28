@@ -174,7 +174,7 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
 
     // Find food until we are bigest
     // if there is food, move towards nearest food
-    if my_size < longest_oponent + 1 && board.food.len() > 0 {
+    if my_size < longest_oponent + 2 && board.food.len() > 0 {
         let closest_food = select_toward(&board.food, &you.body[0]);
 
         // figure out if we can get to food before enemy
