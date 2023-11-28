@@ -275,20 +275,61 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
     let mut chosen =
         Move::from_coord(&you, safe_moves.choose(&mut rand::thread_rng()).unwrap()).unwrap();
 
-    let closest_food = board
-        .food
+    let enemies = board
+        .snakes
         .iter()
-        .map(|food| (food, manhattan_distance(&you.body[0], food)))
-        .min_by(|(_, ad), (_, bd)| ad.cmp(bd))
-        .map(|(coord, _)| coord);
+        .filter(|s| s.id != you.id)
+        .collect::<Vec<_>>();
 
-    // if there is food, move towards nearest food
-    if let Some(food) = closest_food {
+    let my_size = you.body.len();
+    let longest_oponent = enemies.iter().map(|s| s.body.len()).max().unwrap_or(0);
+
+    // Find food until we are bigest
+    if my_size < longest_oponent + 1 {
+        let closest_food = board
+            .food
+            .iter()
+            .map(|food| (food, manhattan_distance(&you.body[0], food)))
+            .min_by(|(_, ad), (_, bd)| ad.cmp(bd))
+            .map(|(coord, _)| coord);
+
+        // if there is food, move towards nearest food
+        if let Some(food) = closest_food {
+            info!("Going for food at {:?}", food);
+            chosen = Move::from_coord(
+                &you,
+                safe_moves
+                    .iter()
+                    .map(|c| (c, manhattan_distance(&c, food)))
+                    .min_by(|(_, ad), (_, bd)| ad.cmp(bd))
+                    .map(|(coord, _)| coord)
+                    .unwrap(),
+            )
+            .unwrap();
+        } else {
+            // Run away
+            let enemy_head = &enemies[0].body[0];
+            info!("Running away from enemy at {:?}", enemy_head);
+            chosen = Move::from_coord(
+                &you,
+                safe_moves
+                    .iter()
+                    .map(|c| (c, manhattan_distance(&c, &enemy_head)))
+                    .max_by(|(_, ad), (_, bd)| ad.cmp(bd))
+                    .map(|(coord, _)| coord)
+                    .unwrap(),
+            )
+            .unwrap();
+        }
+    } else if enemies.len() > 0 {
+        // Go for the head of first enemy
+        let enemy_head = &enemies[0].body[0];
+        info!("Going for the head of enemy at {:?}", enemy_head);
         chosen = Move::from_coord(
             &you,
             safe_moves
                 .iter()
-                .map(|c| (c, manhattan_distance(&c, food)))
+                .map(|c| (c, manhattan_distance(&c, &enemy_head)))
                 .min_by(|(_, ad), (_, bd)| ad.cmp(bd))
                 .map(|(coord, _)| coord)
                 .unwrap(),
