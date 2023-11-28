@@ -155,6 +155,7 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
         info!("There are no safe moves, we are dead :(");
         return json!({"move": Move::Left.to_string()});
     }
+    info!("{} - Safe Moves: {:?}", you.name, safe_move_coords);
 
     // select random move
     let mut chosen = Move::from_coord(
@@ -188,12 +189,15 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
                 .unwrap();
             let nearest_enemy_distance = manhattan_distance(&nearest_enemy.body[0], &closest_food);
             if distance_to_food < nearest_enemy_distance {
-                info!("Going for food at {:?}", closest_food);
+                info!("{} - Going for food at {:?}", you.name, closest_food);
                 chosen = Move::from_coord(&you, select_toward(&safe_move_coords, &closest_food))
                     .unwrap();
             } else {
                 // Run away
-                info!("Running away from enemy at {:?}", nearest_enemy.body[0]);
+                info!(
+                    "{} - Running away from enemy at {:?}",
+                    you.name, nearest_enemy.body[0]
+                );
                 chosen =
                     Move::from_coord(&you, select_away(&safe_move_coords, &nearest_enemy.body[0]))
                         .unwrap();
@@ -209,11 +213,27 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
             .unwrap();
 
         let enemy_head = &nearest_enemy.body[0];
-        info!("Going for the head of enemy at {:?}", enemy_head);
+        info!(
+            "{} - Going for the head of enemy at {:?}",
+            you.name, enemy_head
+        );
         chosen = Move::from_coord(&you, select_toward(&safe_move_coords, &enemy_head)).unwrap();
+    } else if my_size < longest_oponent {
+        let nearest_enemy = enemies
+            .iter()
+            .map(|e| (e, manhattan_distance(&e.body[0], &you.body[0])))
+            .min_by(|(_, da), (_, db)| da.cmp(db))
+            .map(|(e, _)| e)
+            .unwrap();
+        info!(
+            "{} - Running away from enemy at {:?}",
+            you.name, nearest_enemy.body[0]
+        );
+        chosen =
+            Move::from_coord(&you, select_away(&safe_move_coords, &nearest_enemy.body[0])).unwrap();
     }
 
-    info!("MOVE {}: {}", turn, chosen);
+    info!("{} - MOVE {}: {}", you.name, turn, chosen);
     return json!({ "move": chosen.to_string() });
 }
 
