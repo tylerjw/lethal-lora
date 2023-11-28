@@ -173,22 +173,42 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
     let longest_oponent = enemies.iter().map(|s| s.body.len()).max().unwrap_or(0);
 
     // Find food until we are bigest
-    if my_size < longest_oponent + 1 {
-        // if there is food, move towards nearest food
-        if board.food.len() > 0 {
-            let closest_food = select_toward(&board.food, &you.body[0]);
-            info!("Going for food at {:?}", closest_food);
-            chosen =
-                Move::from_coord(&you, select_toward(&safe_move_coords, &closest_food)).unwrap();
-        } else {
-            // Run away
-            let enemy_head = &enemies[0].body[0];
-            info!("Running away from enemy at {:?}", enemy_head);
-            chosen = Move::from_coord(&you, select_away(&safe_move_coords, &enemy_head)).unwrap();
+    // if there is food, move towards nearest food
+    if my_size < longest_oponent + 1 && board.food.len() > 0 {
+        let closest_food = select_toward(&board.food, &you.body[0]);
+
+        // figure out if we can get to food before enemy
+        if enemies.len() > 0 {
+            let distance_to_food = manhattan_distance(&you.body[0], &closest_food);
+            let nearest_enemy = enemies
+                .iter()
+                .map(|e| (e, manhattan_distance(&e.body[0], &closest_food)))
+                .min_by(|(_, da), (_, db)| da.cmp(db))
+                .map(|(e, _)| e)
+                .unwrap();
+            let nearest_enemy_distance = manhattan_distance(&nearest_enemy.body[0], &closest_food);
+            if distance_to_food < nearest_enemy_distance {
+                info!("Going for food at {:?}", closest_food);
+                chosen = Move::from_coord(&you, select_toward(&safe_move_coords, &closest_food))
+                    .unwrap();
+            } else {
+                // Run away
+                info!("Running away from enemy at {:?}", nearest_enemy.body[0]);
+                chosen =
+                    Move::from_coord(&you, select_away(&safe_move_coords, &nearest_enemy.body[0]))
+                        .unwrap();
+            }
         }
-    } else if enemies.len() > 0 {
-        // Go for the head of first enemy
-        let enemy_head = &enemies[0].body[0];
+    } else if my_size > longest_oponent && enemies.len() > 0 {
+        // Go for the head of nearest
+        let nearest_enemy = enemies
+            .iter()
+            .map(|e| (e, manhattan_distance(&e.body[0], &you.body[0])))
+            .min_by(|(_, da), (_, db)| da.cmp(db))
+            .map(|(e, _)| e)
+            .unwrap();
+
+        let enemy_head = &nearest_enemy.body[0];
         info!("Going for the head of enemy at {:?}", enemy_head);
         chosen = Move::from_coord(&you, select_toward(&safe_move_coords, &enemy_head)).unwrap();
     }
