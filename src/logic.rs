@@ -96,6 +96,112 @@ fn manhattan_distance(a: &Coord, b: &Coord) -> u32 {
     a.x.abs_diff(b.x) + a.y.abs_diff(b.y)
 }
 
+fn select_toward<'a>(coords: &'a [Coord], target: &Coord) -> &'a Coord {
+    coords
+        .iter()
+        .map(|c| (c, manhattan_distance(&c, target)))
+        .min_by(|(_, ad), (_, bd)| ad.cmp(bd))
+        .map(|(m, _)| m)
+        .unwrap()
+}
+
+fn select_away<'a>(coords: &'a [Coord], target: &Coord) -> &'a Coord {
+    coords
+        .iter()
+        .map(|c| (c, manhattan_distance(&c, target)))
+        .max_by(|(_, ad), (_, bd)| ad.cmp(bd))
+        .map(|(m, _)| m)
+        .unwrap()
+}
+
+// info is called when you create your Battlesnake on play.battlesnake.com
+// and controls your Battlesnake's appearance
+// TIP: If you open your Battlesnake URL in a browser you should see this data
+pub fn info() -> Value {
+    info!("INFO");
+
+    return json!({
+        "apiversion": "1",
+        "author": "Lethal Lora",
+        "color": "#8ceb34",
+        "head": "fang",
+        "tail": "pixel", // TODO: Choose tail
+    });
+}
+
+// start is called when your Battlesnake begins a game
+pub fn start(_game: &Game, _turn: &u32, _board: &Board, _you: &Battlesnake) {
+    info!("GAME START");
+}
+
+// end is called when your Battlesnake finishes a game
+pub fn end(_game: &Game, _turn: &u32, _board: &Board, _you: &Battlesnake) {
+    info!("GAME OVER");
+}
+
+// move is called on every turn and returns your next move
+// Valid moves are "up", "down", "left", or "right"
+// See https://docs.battlesnake.com/api/example-move for available data
+pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> Value {
+    let snake_coords: Vec<_> = board.snakes.iter().flat_map(|s| &s.body).collect();
+    let safe_move_coords = Move::all()
+        .iter()
+        .flat_map(|m| m.to_coord(&you))
+        .filter(|m| in_bounds(&board, m))
+        .filter(|c| !snake_coords.contains(&c))
+        .collect::<Vec<Coord>>();
+
+    if safe_move_coords.is_empty() {
+        info!("There are no safe moves, we are dead :(");
+        return json!({"move": Move::Left.to_string()});
+    }
+
+    // select random move
+    let mut chosen = Move::from_coord(
+        &you,
+        safe_move_coords.choose(&mut rand::thread_rng()).unwrap(),
+    )
+    .unwrap();
+
+    let enemies = board
+        .snakes
+        .iter()
+        .filter(|s| s.id != you.id)
+        .collect::<Vec<_>>();
+
+    let my_size = you.body.len();
+    let longest_oponent = enemies.iter().map(|s| s.body.len()).max().unwrap_or(0);
+
+    // Find food until we are bigest
+    if my_size < longest_oponent + 1 {
+        let closest_food = board
+            .food
+            .iter()
+            .map(|food| (food, manhattan_distance(&you.body[0], food)))
+            .min_by(|(_, ad), (_, bd)| ad.cmp(bd))
+            .map(|(coord, _)| coord);
+
+        // if there is food, move towards nearest food
+        if let Some(food) = closest_food {
+            info!("Going for food at {:?}", food);
+            chosen = Move::from_coord(&you, select_toward(&safe_move_coords, &food)).unwrap();
+        } else {
+            // Run away
+            let enemy_head = &enemies[0].body[0];
+            info!("Running away from enemy at {:?}", enemy_head);
+            chosen = Move::from_coord(&you, select_away(&safe_move_coords, &enemy_head)).unwrap();
+        }
+    } else if enemies.len() > 0 {
+        // Go for the head of first enemy
+        let enemy_head = &enemies[0].body[0];
+        info!("Going for the head of enemy at {:?}", enemy_head);
+        chosen = Move::from_coord(&you, select_toward(&safe_move_coords, &enemy_head)).unwrap();
+    }
+
+    info!("MOVE {}: {}", turn, chosen);
+    return json!({ "move": chosen.to_string() });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -227,116 +333,4 @@ mod tests {
         assert!(all.contains(&Move::Left));
         assert!(all.contains(&Move::Right));
     }
-}
-
-// info is called when you create your Battlesnake on play.battlesnake.com
-// and controls your Battlesnake's appearance
-// TIP: If you open your Battlesnake URL in a browser you should see this data
-pub fn info() -> Value {
-    info!("INFO");
-
-    return json!({
-        "apiversion": "1",
-        "author": "Lethal Lora",
-        "color": "#8ceb34",
-        "head": "fang",
-        "tail": "pixel", // TODO: Choose tail
-    });
-}
-
-// start is called when your Battlesnake begins a game
-pub fn start(_game: &Game, _turn: &u32, _board: &Board, _you: &Battlesnake) {
-    info!("GAME START");
-}
-
-// end is called when your Battlesnake finishes a game
-pub fn end(_game: &Game, _turn: &u32, _board: &Board, _you: &Battlesnake) {
-    info!("GAME OVER");
-}
-
-// move is called on every turn and returns your next move
-// Valid moves are "up", "down", "left", or "right"
-// See https://docs.battlesnake.com/api/example-move for available data
-pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> Value {
-    let snake_coords: Vec<_> = board.snakes.iter().flat_map(|s| &s.body).collect();
-    let safe_moves = Move::all()
-        .iter()
-        .flat_map(|m| m.to_coord(&you))
-        .filter(|m| in_bounds(&board, m))
-        .filter(|c| !snake_coords.contains(&c))
-        .collect::<Vec<Coord>>();
-
-    if safe_moves.is_empty() {
-        info!("There are no safe moves, we are dead :(");
-        return json!({"move": Move::Left.to_string()});
-    }
-
-    // select random move
-    let mut chosen =
-        Move::from_coord(&you, safe_moves.choose(&mut rand::thread_rng()).unwrap()).unwrap();
-
-    let enemies = board
-        .snakes
-        .iter()
-        .filter(|s| s.id != you.id)
-        .collect::<Vec<_>>();
-
-    let my_size = you.body.len();
-    let longest_oponent = enemies.iter().map(|s| s.body.len()).max().unwrap_or(0);
-
-    // Find food until we are bigest
-    if my_size < longest_oponent + 1 {
-        let closest_food = board
-            .food
-            .iter()
-            .map(|food| (food, manhattan_distance(&you.body[0], food)))
-            .min_by(|(_, ad), (_, bd)| ad.cmp(bd))
-            .map(|(coord, _)| coord);
-
-        // if there is food, move towards nearest food
-        if let Some(food) = closest_food {
-            info!("Going for food at {:?}", food);
-            chosen = Move::from_coord(
-                &you,
-                safe_moves
-                    .iter()
-                    .map(|c| (c, manhattan_distance(&c, food)))
-                    .min_by(|(_, ad), (_, bd)| ad.cmp(bd))
-                    .map(|(coord, _)| coord)
-                    .unwrap(),
-            )
-            .unwrap();
-        } else {
-            // Run away
-            let enemy_head = &enemies[0].body[0];
-            info!("Running away from enemy at {:?}", enemy_head);
-            chosen = Move::from_coord(
-                &you,
-                safe_moves
-                    .iter()
-                    .map(|c| (c, manhattan_distance(&c, &enemy_head)))
-                    .max_by(|(_, ad), (_, bd)| ad.cmp(bd))
-                    .map(|(coord, _)| coord)
-                    .unwrap(),
-            )
-            .unwrap();
-        }
-    } else if enemies.len() > 0 {
-        // Go for the head of first enemy
-        let enemy_head = &enemies[0].body[0];
-        info!("Going for the head of enemy at {:?}", enemy_head);
-        chosen = Move::from_coord(
-            &you,
-            safe_moves
-                .iter()
-                .map(|c| (c, manhattan_distance(&c, &enemy_head)))
-                .min_by(|(_, ad), (_, bd)| ad.cmp(bd))
-                .map(|(coord, _)| coord)
-                .unwrap(),
-        )
-        .unwrap();
-    }
-
-    info!("MOVE {}: {}", turn, chosen);
-    return json!({ "move": chosen.to_string() });
 }
