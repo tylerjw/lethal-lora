@@ -174,17 +174,12 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
 
     // Find food until we are bigest
     if my_size < longest_oponent + 1 {
-        let closest_food = board
-            .food
-            .iter()
-            .map(|food| (food, manhattan_distance(&you.body[0], food)))
-            .min_by(|(_, ad), (_, bd)| ad.cmp(bd))
-            .map(|(coord, _)| coord);
-
         // if there is food, move towards nearest food
-        if let Some(food) = closest_food {
-            info!("Going for food at {:?}", food);
-            chosen = Move::from_coord(&you, select_toward(&safe_move_coords, &food)).unwrap();
+        if board.food.len() > 0 {
+            let closest_food = select_toward(&board.food, &you.body[0]);
+            info!("Going for food at {:?}", closest_food);
+            chosen =
+                Move::from_coord(&you, select_toward(&safe_move_coords, &closest_food)).unwrap();
         } else {
             // Run away
             let enemy_head = &enemies[0].body[0];
@@ -205,6 +200,18 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn select_directions() {
+        let moves = vec![Coord { x: 0, y: 0 }];
+        let target = Coord { x: 2, y: 2 };
+        assert_eq!(select_toward(&moves, &target), &moves[0]);
+        assert_eq!(select_away(&moves, &target), &moves[0]);
+
+        let moves = vec![Coord { x: 0, y: 0 }, Coord { x: 0, y: 2 }];
+        assert_eq!(select_toward(&moves, &target), &moves[1]);
+        assert_eq!(select_away(&moves, &target), &moves[0]);
+    }
 
     #[test]
     fn manhattan_distance_test() {
