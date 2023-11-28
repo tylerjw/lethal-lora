@@ -15,7 +15,7 @@ use rand::seq::SliceRandom;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-use crate::{Battlesnake, Board, Game, Coord};
+use crate::{Battlesnake, Board, Coord, Game};
 
 // info is called when you create your Battlesnake on play.battlesnake.com
 // and controls your Battlesnake's appearance
@@ -46,7 +46,6 @@ pub fn end(_game: &Game, _turn: &u32, _board: &Board, _you: &Battlesnake) {
 // Valid moves are "up", "down", "left", or "right"
 // See https://docs.battlesnake.com/api/example-move for available data
 pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> Value {
-    
     let mut is_move_safe: HashMap<_, _> = vec![
         ("up", true),
         ("down", true),
@@ -56,24 +55,23 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
     .into_iter()
     .collect();
 
-    let opponents: Vec<_> = board.snakes.iter()
-    .filter(|&s| s.id != you.id )
-    .collect();
+    let opponents: Vec<_> = board.snakes.iter().filter(|&s| s.id != you.id).collect();
 
     // We've included code to prevent your Battlesnake from moving backwards
     let my_head = &you.body[0]; // Coordinates of your head
     let my_neck = &you.body[1]; // Coordinates of your "neck"
-    
-    if my_neck.x < my_head.x { // Neck is left of head, don't move left
+
+    if my_neck.x < my_head.x {
+        // Neck is left of head, don't move left
         is_move_safe.insert("left", false);
-
-    } else if my_neck.x > my_head.x { // Neck is right of head, don't move right
+    } else if my_neck.x > my_head.x {
+        // Neck is right of head, don't move right
         is_move_safe.insert("right", false);
-
-    } else if my_neck.y < my_head.y { // Neck is below head, don't move down
+    } else if my_neck.y < my_head.y {
+        // Neck is below head, don't move down
         is_move_safe.insert("down", false);
-    
-    } else if my_neck.y > my_head.y { // Neck is above head, don't move up
+    } else if my_neck.y > my_head.y {
+        // Neck is above head, don't move up
         is_move_safe.insert("up", false);
     }
 
@@ -86,7 +84,10 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
     info!("width: {}, height: {}", board_width, board_height);
     let my_body = &you.body;
     if my_head.y > 0 {
-        let down = Coord{x: my_head.x, y: my_head.y - 1};
+        let down = Coord {
+            x: my_head.x,
+            y: my_head.y - 1,
+        };
         for space in my_body.iter().skip(1) {
             if *space == down {
                 is_move_safe.insert("down", false);
@@ -106,7 +107,10 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
     }
 
     if my_head.y < board_height - 1 {
-        let up = Coord{x: my_head.x, y: my_head.y + 1};
+        let up = Coord {
+            x: my_head.x,
+            y: my_head.y + 1,
+        };
         for space in my_body.iter().skip(1) {
             if *space == up {
                 is_move_safe.insert("up", false);
@@ -126,7 +130,10 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
     }
 
     if my_head.x > 0 {
-        let left = Coord{x: my_head.x - 1, y: my_head.y};
+        let left = Coord {
+            x: my_head.x - 1,
+            y: my_head.y,
+        };
         for space in my_body.iter().skip(1) {
             if *space == left {
                 is_move_safe.insert("left", false);
@@ -146,7 +153,10 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
     }
 
     if my_head.x < board_width - 1 {
-        let right = Coord{x: my_head.x + 1, y: my_head.y};
+        let right = Coord {
+            x: my_head.x + 1,
+            y: my_head.y,
+        };
         for space in my_body.iter().skip(1) {
             if *space == right {
                 is_move_safe.insert("right", false);
@@ -171,15 +181,14 @@ pub fn get_move(_game: &Game, turn: &u32, board: &Board, you: &Battlesnake) -> V
         .filter(|&(_, v)| v)
         .map(|(k, _)| k)
         .collect::<Vec<_>>();
-    
+
     // Choose a random move from the safe ones
-    let chosen = 
-        if safe_moves.is_empty() {
-            info!("no safe moves -- we die now :(");
-            "left"
-        } else {
-            safe_moves.choose(&mut rand::thread_rng()).unwrap()
-        };
+    let chosen = if safe_moves.is_empty() {
+        info!("no safe moves -- we die now :(");
+        "left"
+    } else {
+        safe_moves.choose(&mut rand::thread_rng()).unwrap()
+    };
 
     // TODO: Step 4 - Move towards food instead of random, to regain health and survive longer
     // let food = &board.food;
