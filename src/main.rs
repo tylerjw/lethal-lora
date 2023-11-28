@@ -22,7 +22,7 @@ pub struct Game {
     timeout: u32,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Default)]
 pub struct Board {
     height: u32,
     width: u32,
@@ -31,7 +31,7 @@ pub struct Board {
     hazards: Vec<Coord>,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Default)]
 pub struct Battlesnake {
     id: String,
     name: String,
@@ -43,7 +43,7 @@ pub struct Battlesnake {
     shout: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Eq, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Eq, PartialEq, Default)]
 pub struct Coord {
     x: u32,
     y: u32,
